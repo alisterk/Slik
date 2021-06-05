@@ -1,10 +1,11 @@
-[![Build](https://github.com/Insvald/Slik/actions/workflows/dotnet.yml/badge.svg)](https://github.com/Insvald/Slik/actions/workflows/dotnet.yml)
+[![Build](https://github.com/Insvald/Slik/actions/workflows/build-and-tests.yml/badge.svg)](https://github.com/Insvald/Slik/actions/workflows/build-and-tests.yml)
+[![Integration tests](https://github.com/Insvald/Slik/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/Insvald/Slik/actions/workflows/integration-tests.yml)
 [![Nuget](https://img.shields.io/nuget/v/Slik.Cache)](https://www.nuget.org/api/v2/package/Slik.Cache/1.0.0)
 [![The current version of Slik.Cache](https://img.shields.io/github/v/release/Insvald/Slik)](https://github.com/Insvald/Slik)
 [![Slik.Cache uses MIT License](https://img.shields.io/github/license/Insvald/Slik)](https://github.com/Insvald/Slik/blob/master/LICENSE)
 
 # Slik.Cache
-Distributed In-process Cache in C# / Net 6.0 with external gRPC API (HTTP/2, client/server certificates)
+Distributed In-process Cache in C# and Net 5.0/6.0 with external gRPC API (HTTP/2, client/server certificates)
 
 Based on a [magnificent dotNext library](https://github.com/sakno/dotNext) and its Raft cluster implementation. 
 
@@ -51,7 +52,27 @@ SlikNode --port=3094 --folder="node 3" --members=localhost:3092,localhost:3093,l
 
 ## Roadmap
 - [x] Self-signed certificates generation
-- [x] Support adding of cluster members in runtime
-- [ ] Support removing of cluster members in runtime
-- [ ] More unit and integration tests to cover adding/removing cluster members
+- [x] Support adding/removal of cluster members in runtime
+- [x] More unit and integration tests to cover adding/removing cluster members
 - [ ] Docker compose for starting cluster in containers
+
+<a name="slik-cord"></a>
+[![Slik.Cord tests](https://github.com/Insvald/Slik/actions/workflows/slik-cord-integration.yml/badge.svg)](https://github.com/Insvald/Slik/actions/workflows/slik-cord-integration.yml)
+# Slik.Cord
+
+A gRPC HTTP proxy for [containerd](https://github.com/containerd/containerd) in C# and Net 5.0/6.0. 
+Containerd API works locally via Unix domain socket (in Linux) or named pipe (in Windows), not allowing to connect to it from another computer/container. This proxy can solve the problem.
+**Current implementation doesn't work on Windows.**
+
+## Usage
+Run SlikCord (preferably in a container). Connect to port 80 from any client with gRPC support using the regular [containerd API](https://github.com/containerd/containerd/tree/master/api).
+
+## Roadmap
+- [x] Support for all containerd APIs
+- [x] Integration tests for containers, images, version, content, events, introspection, namespaces
+- [ ] Integration tests for diff, leases, snapshots, tasks, ttrpc-events
+- [ ] Switch to HTTPS
+- [ ] Support self-signed certificates
+- [ ] Named pipes support
+- [x] Unix domain socket on Linux support
+- [ ] Unix domain socket on Windows support

@@ -53,7 +53,7 @@ namespace Slik.Cache
                     {
                         app.UseConsensusProtocolHandler();
 
-                        if (cacheOptions.EnableGrpcApi == true)
+                        if (cacheOptions.EnableGrpcApi)
                         {
                             (context.HostingEnvironment.IsDevelopment() ? app.UseDeveloperExceptionPage() : app)
                                 .UseRouting()
@@ -61,7 +61,6 @@ namespace Slik.Cache
                                 {
                                     endpoints.MapGrpcService<SlikMembershipGrpcService>();
                                     endpoints.MapGrpcService<SlikCacheGrpcService>();
-                                    //endpoints.MapGet("/", async context => await context.Response.WriteAsync("gRPC endpoint"));
                                 });
                         }
                     })
@@ -89,13 +88,16 @@ namespace Slik.Cache
                         .Configure<CertificateOptions>(options => cacheOptions.CertificateOptions.CopyTo(options))
                         .AddSingleton<IHttpMessageHandlerFactory, RaftClientHandlerFactory>()
                         .Configure<SlikOptions>(options => cacheOptions.CopyTo(options))
-                        .UsePersistenceEngine<IDistributedCache, SlikCache>()
-                        .AddSingleton<SlikMembershipHandler>()
-                        .AddSingleton<ISlikMembership>(ServiceProviderServiceExtensions.GetRequiredService<SlikMembershipHandler>)
+                        .UsePersistenceEngine<IDistributedCache, SlikCache>()                        
                         .AddHostedService<SlikRouter>();
 
                     if (cacheOptions.EnableGrpcApi)
-                        services.AddCodeFirstGrpc();
+                    {
+                        services
+                            .AddSingleton<SlikMembershipHandler>()
+                            .AddSingleton<ISlikMembership>(ServiceProviderServiceExtensions.GetRequiredService<SlikMembershipHandler>)
+                            .AddCodeFirstGrpc();
+                    }
                 })
                 .JoinCluster();
 

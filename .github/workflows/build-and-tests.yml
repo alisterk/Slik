@@ -1,0 +1,43 @@
+name: Build and tests
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - '.github/**'
+      - '**/*.md'
+      - 'src/SlikCord/**'
+      - 'tests/**'
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - '.github/**'
+      - '**/*.md'
+      - 'src/SlikCord/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET 5.0
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+    - name: Setup .NET 6.0
+      uses: actions/setup-dotnet@v1.8.0
+      with:
+        dotnet-version: '6.0'
+        include-prerelease: True
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Test Cache
+      run: dotnet test tests/SlikCache.Tests --no-build --verbosity normal
+    - name: Test Security
+      run: dotnet test tests/SlikSecurity.Tests --no-build --verbosity normal

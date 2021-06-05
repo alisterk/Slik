@@ -32,16 +32,16 @@ namespace Slik.Cache
     {
         private readonly ILogger<SlikMembershipHandler> _logger;
         private readonly IConfiguration _config;
-        private readonly SlikOptions _options;
+        private readonly IOptionsMonitor<SlikOptions> _options;
         private readonly IExpandableCluster _cluster;
         private readonly object _lock = new();
 
         public SlikMembershipHandler(ILogger<SlikMembershipHandler> logger, IConfiguration config, 
-            IHttpMessageHandlerFactory httpHandlerFactory, IOptions<SlikOptions> options, IExpandableCluster cluster)
+            IHttpMessageHandlerFactory httpHandlerFactory, IOptionsMonitor<SlikOptions> options, IExpandableCluster cluster)
         {
             _logger = logger;
             _config = config;
-            _options = options.Value;
+            _options = options;
 
             _cluster = cluster;
             _cluster.MemberAdded += (_, member) => _logger.LogInformation($"Cluster member '{member.EndPoint}' has been added");
@@ -59,10 +59,10 @@ namespace Slik.Cache
                     .Select(ip => ip.ToString())
                     .Union(new[] { "127.0.0.1", "localhost" });
 
-                var remoteMembers = _options.Members.Where(member => 
+                var remoteMembers = _options.CurrentValue.Members.Where(member => 
                 {
-                    Uri uri = new Uri(member);
-                    return uri.Port != _options.Host.Port || !localIps.Contains(uri.Host);
+                    var uri = new Uri(member);
+                    return uri.Port != _options.CurrentValue.Host.Port || !localIps.Contains(uri.Host);
                 });
 
                 if (remoteMembers.Any())
@@ -78,13 +78,13 @@ namespace Slik.Cache
                             try
                             {
                                 using var channel = GrpcChannel.ForAddress(member, new GrpcChannelOptions { HttpHandler = httpHandler });
-                                var service = channel.CreateGrpcService<ISlikMembershipGrpcService>();
-                                await service.Add(new MemberRequest { Member = $"https://{_options.Host}" }).ConfigureAwait(false);
+                                var service = channel.CreateGrpcService<ISlikMembershipService>();
+                                await service.Add(new MemberRequest { Member = $"https://{_options.CurrentValue.Host}" }).ConfigureAwait(false);
                                 success = true;
                             }
                             catch (Exception e)
                             {
-                                _logger.LogWarning(e, $"Error contacting remote member '{member}'.");
+                                _logger.LogWarning(e, $"Error contacting member '{member}'.");
                             }
                         }
 
@@ -103,6 +103,19 @@ namespace Slik.Cache
             }
         }
 
+        private void ReloadConfig()
+        {
+            _logger.LogDebug("Trying to reload the configuration");
+            if (_config is IConfigurationRoot configRoot)
+            {
+                configRoot.Reload();
+            }
+            else
+            {
+                _logger.LogError("Error reloading configuration");
+            }
+        }
+
         private async Task ChangeMembershipAsync(MembershipChangeRecord record, CancellationToken token)
         {
             bool handled = RedirectHandler != null && await RedirectHandler(record, token).ConfigureAwait(false);
@@ -113,8 +126,9 @@ namespace Slik.Cache
 
                 lock (_lock)
                 {
-                    var members = _cluster.Members.Select(m => m.EndPoint.ToString());
+                    var members = _cluster.Members.Select(m => $"https://{m.EndPoint}");
                     int memberCount = members.Count();
+                    record.Member = record.Member.Replace("localhost", "127.0.0.1");
 
                     switch (record.Operation)
                     {
@@ -123,11 +137,11 @@ namespace Slik.Cache
                             {
                                 _config[$"members:{memberCount}"] = record.Member;
                                 _logger.LogDebug($"Member '{record.Member}' has been added to the configuration");
+                                ReloadConfig();
                             }
                             else
-                                _logger.LogDebug($"Member '{record.Member}' is added already");
-
-                            (_config as IConfigurationRoot ?? throw new Exception("Cannot reload configuration")).Reload();
+                                _logger.LogDebug($"Member '{record.Member}' has been added already");
+                                                        
                             break;
 
                         case MembershipChangeRecord.MemebershipOperation.Remove:
@@ -151,9 +165,12 @@ namespace Slik.Cache
                                         }
                                     }
                                 }
-                            }
 
-                            (_config as IConfigurationRoot ?? throw new Exception("Cannot reload configuration")).Reload();
+                                ReloadConfig();
+                            }
+                            else
+                                _logger.LogDebug($"Member '{record.Member}' has been removed already or didn't exist");
+
                             break;
                     }
                 }

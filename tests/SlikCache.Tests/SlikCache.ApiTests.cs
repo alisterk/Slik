@@ -2,15 +2,20 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Slik.Cache.Tests
 {
     [TestClass]
+#if NET5_0
+    [TestCategory(".Net 5")]
+#else
+    [TestCategory(".Net 6")]
+#endif
     public class SlikCacheApiTests
     {
-        private readonly SlikCache _cache = SlikCacheHelper.InitCache();       
+        private readonly SlikCache _cache = SlikCacheHelper.InitCache(); 
+        private const int ExpirationTimeoutInMs = 200;
 
         public class MissingKeyException : Exception
         {
@@ -73,8 +78,7 @@ namespace Slik.Cache.Tests
 
         private async Task SetAsync_Expiration_ExpiresInTime(Func<TimeSpan, DistributedCacheEntryOptions> getOptions)
         {
-            int timeoutInMs = 100;
-            TimeSpan timeout = TimeSpan.FromMilliseconds(timeoutInMs);
+            TimeSpan timeout = TimeSpan.FromMilliseconds(ExpirationTimeoutInMs);
             byte[] expectedSequence = new byte[] { 1, 2, 3 };
             string key = "key1";
 
@@ -82,7 +86,7 @@ namespace Slik.Cache.Tests
             var actualSequence = await GetKeyOrThrowAsync(key);
             Assert.IsTrue(expectedSequence.SequenceEqual(actualSequence));
 
-            await Task.Delay(TimeSpan.FromMilliseconds(timeoutInMs * 1.2)); // wait 20% more to be sure
+            await Task.Delay(TimeSpan.FromMilliseconds(ExpirationTimeoutInMs * 1.2)); // wait 20% more to be sure
             actualSequence = await _cache.GetAsync(key);
 
             Assert.IsNull(actualSequence);
@@ -109,34 +113,32 @@ namespace Slik.Cache.Tests
         [TestMethod]
         public async Task GetAsync_SlidingExpiration_DoesNotExpire()
         {
-            int timeoutInMs = 100;
             byte[] expectedSequence = new byte[] { 1, 2, 3 };
             string key = "key1";
 
             await _cache.SetAsync(key, expectedSequence, 
-                new DistributedCacheEntryOptions { SlidingExpiration = TimeSpan.FromMilliseconds(timeoutInMs) });
+                new DistributedCacheEntryOptions { SlidingExpiration = TimeSpan.FromMilliseconds(ExpirationTimeoutInMs) });
 
             for (int i = 0; i < 10; i++)
             {
                 var actualSequence = await GetKeyOrThrowAsync(key);
                 Assert.IsTrue(expectedSequence.SequenceEqual(actualSequence));
-                await Task.Delay(timeoutInMs / 2);
+                await Task.Delay(ExpirationTimeoutInMs / 2);
             }
         }
 
         [TestMethod]
         public async Task RefreshAsync_SlidingExpiration_DoesNotExpire()
         {
-            int timeoutInMs = 100;
             byte[] expectedSequence = new byte[] { 1, 2, 3 };
             string key = "key1";
 
             await _cache.SetAsync(key, expectedSequence,
-                new DistributedCacheEntryOptions { SlidingExpiration = TimeSpan.FromMilliseconds(timeoutInMs) });
+                new DistributedCacheEntryOptions { SlidingExpiration = TimeSpan.FromMilliseconds(ExpirationTimeoutInMs) });
 
             for (int i = 0; i < 10; i++)
             {                                
-                await Task.Delay(timeoutInMs / 2);
+                await Task.Delay(ExpirationTimeoutInMs / 2);
                 await _cache.RefreshAsync(key);
             }
 

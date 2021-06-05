@@ -10,6 +10,11 @@ using System.Threading.Tasks;
 namespace Slik.Cache.Tests
 {
     [TestClass]
+#if NET5_0
+    [TestCategory(".Net 5")]
+#else
+    [TestCategory(".Net 6")]
+#endif
     public class SlikRouterTests
     {
         private readonly SlikCache _cache = SlikCacheHelper.InitCache();
@@ -21,7 +26,7 @@ namespace Slik.Cache.Tests
             var clusterMock = new Mock<IRaftCluster>();            
             var loggerMock = new Mock<ILogger<SlikRouter>>();
 
-            _router = new SlikRouter(_cache, null /* TODO urgently */, clusterMock.Object, _messageBusMock.Object, loggerMock.Object);
+            _router = new SlikRouter(_cache, Mock.Of<IServiceProvider>(), clusterMock.Object, _messageBusMock.Object, loggerMock.Object);
         }
 
         [TestCleanup]
